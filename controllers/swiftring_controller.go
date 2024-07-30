@@ -307,7 +307,7 @@ func (r *SwiftRingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&swiftv1beta1.SwiftRing{}).
-		Owns(&batchv1.Job{}).
+		Watches(&batchv1.Job{}, handler.EnqueueRequestsFromMapFunc(swiftRingFilter)).
 		Owns(&corev1.ConfigMap{}).
 		Watches(&swiftv1beta1.SwiftStorage{}, handler.EnqueueRequestsFromMapFunc(swiftRingFilter)).
 		Watches(&corev1.Secret{},
