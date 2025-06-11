@@ -23,6 +23,8 @@ import (
 )
 
 func getProxyVolumes(instance *swiftv1beta1.SwiftProxy) []corev1.Volume {
+	var scriptsVolumeDefaultMode int32 = 0755
+	trueVal := true
 	return []corev1.Volume{
 		{
 			Name: "config-data",
@@ -91,6 +93,32 @@ func getProxyVolumes(instance *swiftv1beta1.SwiftProxy) []corev1.Volume {
 				EmptyDir: &corev1.EmptyDirVolumeSource{Medium: ""},
 			},
 		},
+		{
+			Name: "ring-source",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: swift.RingSourceSecretName,
+					Optional:   &trueVal,
+				},
+			},
+		},
+		{
+			Name: "scripts",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					DefaultMode: &scriptsVolumeDefaultMode,
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: instance.Name + "-scripts",
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "swift-fetch-rings",
+							Path: "swift-fetch-rings",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -100,6 +128,27 @@ func getProxyVolumeMounts() []corev1.VolumeMount {
 			Name:      "etc-swift",
 			MountPath: "/etc/swift",
 			ReadOnly:  false,
+		},
+	}
+}
+
+func getProxyInitVolumeMounts() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{
+			Name:      "etc-swift",
+			MountPath: "/etc/swift",
+			ReadOnly:  false,
+		},
+		{
+			Name:      "ring-source",
+			MountPath: "/etc/swift-ring-source",
+			ReadOnly:  false,
+		},
+		{
+			Name:      "scripts",
+			SubPath:   "swift-fetch-rings",
+			MountPath: "/usr/local/bin/swift-fetch-rings",
+			ReadOnly:  true,
 		},
 	}
 }

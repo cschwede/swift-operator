@@ -40,6 +40,7 @@ func Deployment(
 	annotations map[string]string,
 	configHash string,
 	topology *topologyv1.Topology,
+	useExternalRings bool,
 ) (*appsv1.Deployment, error) {
 
 	trueVal := true
@@ -74,6 +75,19 @@ func Deployment(
 	volumes := getProxyVolumes(instance)
 	volumeMounts := getProxyVolumeMounts()
 	httpdVolumeMounts := append(getProxyVolumeMounts(), getHttpdVolumeMounts()...)
+
+	initContainers := []corev1.Container{}
+
+	if useExternalRings {
+		initContainers = append(initContainers, corev1.Container{
+			Name:            "swift-fetch-rings",
+			Image:           instance.Spec.ContainerImageProxy,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			SecurityContext: &securityContext,
+			VolumeMounts:    getProxyInitVolumeMounts(),
+			Command:         []string{"/usr/local/bin/swift-fetch-rings"},
+		})
+	}
 
 	// add CA cert if defined
 	if instance.Spec.TLS.CaBundleSecretName != "" {
@@ -172,6 +186,7 @@ func Deployment(
 							Command:        []string{"/usr/bin/swift-proxy-server", "/etc/swift/proxy-server.conf.d", "-v"},
 						},
 					},
+					InitContainers: initContainers,
 				},
 			},
 		},

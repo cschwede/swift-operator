@@ -24,6 +24,8 @@ import (
 )
 
 func getStorageVolumes(instance *swiftv1beta1.SwiftStorage) []corev1.Volume {
+	var scriptsVolumeDefaultMode int32 = 0755
+	trueVal := true
 	return []corev1.Volume{
 		{
 			Name: swift.ClaimName,
@@ -117,6 +119,32 @@ func getStorageVolumes(instance *swiftv1beta1.SwiftStorage) []corev1.Volume {
 				EmptyDir: &corev1.EmptyDirVolumeSource{Medium: ""},
 			},
 		},
+		{
+			Name: "ring-source",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: swift.RingSourceSecretName,
+					Optional:   &trueVal,
+				},
+			},
+		},
+		{
+			Name: "scripts",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					DefaultMode: &scriptsVolumeDefaultMode,
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: instance.Name + "-scripts",
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "swift-fetch-rings",
+							Path: "swift-fetch-rings",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -141,6 +169,27 @@ func getStorageVolumeMounts() []corev1.VolumeMount {
 			Name:      "lock",
 			MountPath: "/var/lock",
 			ReadOnly:  false,
+		},
+	}
+}
+
+func getStorageInitVolumeMounts() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{
+			Name:      "etc-swift",
+			MountPath: "/etc/swift",
+			ReadOnly:  false,
+		},
+		{
+			Name:      "ring-source",
+			MountPath: "/etc/swift-ring-source",
+			ReadOnly:  false,
+		},
+		{
+			Name:      "scripts",
+			MountPath: "/usr/local/bin/swift-fetch-rings",
+			SubPath:   "swift-fetch-rings",
+			ReadOnly:  true,
 		},
 	}
 }

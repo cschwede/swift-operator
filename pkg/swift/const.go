@@ -34,6 +34,7 @@ const (
 
 	// Must match with settings in the dataplane-operator
 	// and adoption docs/tests
-	SwiftConfSecretName = "swift-conf"
-	RingConfigMapName   = "swift-ring-files"
+	SwiftConfSecretName  = "swift-conf"
+	RingConfigMapName    = "swift-ring-files"
+	RingSourceSecretName = "swift-ring-source"
 )

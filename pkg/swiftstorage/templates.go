@@ -48,5 +48,13 @@ func ConfigMapTemplates(instance *swiftv1beta1.SwiftStorage,
 			ConfigOptions: templateParameters,
 			CustomData:    customData,
 		},
+		{
+			Name:               fmt.Sprintf("%s-scripts", instance.Name),
+			Namespace:          instance.Namespace,
+			Type:               util.TemplateTypeScripts,
+			InstanceType:       instance.Kind,
+			Labels:             labels,
+			AdditionalTemplate: map[string]string{"swift-fetch-rings": "/common/bin/swift-fetch-rings"},
+		},
 	}
 }

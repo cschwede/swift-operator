@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -xe
+TARFILE="/tmp/swiftrings.tar.gz"
+CURL_CONFIG="/etc/swift-ring-source/swift-ring-source.curl"
+
+[ -s "${CURL_CONFIG}" ] || exit 0
+
+/usr/bin/curl -o "${TARFILE}" -K ${CURL_CONFIG}
+
+TMPDIR=$(mktemp -d)
+tar --totals -xzf $TARFILE -C ${TMPDIR}
+
+# Using find because *.ring.gz might be in sudirectories
+# xargs is used to retain the exit code of the cp command
+find "${TMPDIR}" -name "*.ring.gz" | xargs -I FILES cp FILES /etc/swift
+rm -rf ${TMPDIR}

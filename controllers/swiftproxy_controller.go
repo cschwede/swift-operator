@@ -45,6 +45,7 @@ import (
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/configmap"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/deployment"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
@@ -590,6 +591,13 @@ func (r *SwiftProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
+	// Create a ConfigMap populated with content from templates/
+	tpl = swiftproxy.ConfigMapTemplates(instance, serviceLabels)
+	err = configmap.EnsureConfigMaps(ctx, helper, instance, tpl, &envVars)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// create hash over all the different input resources to identify if any those changed
 	// and a restart/recreate is required.
 	inputHash, hashChanged, err := r.createHashOfInputHashes(instance, envVars)
@@ -658,8 +666,15 @@ func (r *SwiftProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, fmt.Errorf("waiting for Topology requirements: %w", err)
 	}
 
+	// Check if there is a Secret to use externally managed rings
+	useExternalRings := false
+	_, _, err = secret.GetSecret(ctx, helper, swift.RingSourceSecretName, instance.Namespace)
+	if err == nil {
+		useExternalRings = true
+	}
+
 	// Create Deployment
-	ssDef, err := swiftproxy.Deployment(instance, serviceLabels, serviceAnnotations, inputHash, topology)
+	ssDef, err := swiftproxy.Deployment(instance, serviceLabels, serviceAnnotations, inputHash, topology, useExternalRings)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			swiftv1beta1.SwiftProxyReadyCondition,

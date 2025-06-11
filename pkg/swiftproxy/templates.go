@@ -82,3 +82,18 @@ func SecretTemplates(
 		},
 	}
 }
+
+func ConfigMapTemplates(instance *swiftv1beta1.SwiftProxy,
+	labels map[string]string) []util.Template {
+
+	return []util.Template{
+		{
+			Name:               fmt.Sprintf("%s-scripts", instance.Name),
+			Namespace:          instance.Namespace,
+			Type:               util.TemplateTypeScripts,
+			InstanceType:       instance.Kind,
+			Labels:             labels,
+			AdditionalTemplate: map[string]string{"swift-fetch-rings": "/common/bin/swift-fetch-rings"},
+		},
+	}
+}

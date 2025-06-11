@@ -61,6 +61,7 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/networkattachment"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/pod"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 )
 
@@ -338,8 +339,15 @@ func (r *SwiftStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, fmt.Errorf("waiting for Topology requirements: %w", err)
 	}
 
+	// Check if there is a Secret to use externally managed rings
+	useExternalRings := false
+	_, _, err = secret.GetSecret(ctx, helper, swift.RingSourceSecretName, instance.Namespace)
+	if err == nil {
+		useExternalRings = true
+	}
+
 	// Statefulset with all backend containers
-	sspec, err := swiftstorage.StatefulSet(instance, serviceLabels, serviceAnnotations, inputHash, topology)
+	sspec, err := swiftstorage.StatefulSet(instance, serviceLabels, serviceAnnotations, inputHash, topology, useExternalRings)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			swiftv1beta1.SwiftStorageReadyCondition,

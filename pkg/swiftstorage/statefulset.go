@@ -197,12 +197,31 @@ func getStorageContainers(swiftstorage *swiftv1beta1.SwiftStorage, env []corev1.
 	return containers
 }
 
+func getStorageInitContainers(swiftstorage *swiftv1beta1.SwiftStorage, useExternalRings bool) []corev1.Container {
+	securityContext := swift.GetSecurityContext()
+
+	containers := []corev1.Container{}
+
+	if useExternalRings {
+		containers = append(containers, corev1.Container{
+			Name:            "swift-fetch-rings",
+			Image:           swiftstorage.Spec.ContainerImageObject,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			SecurityContext: &securityContext,
+			VolumeMounts:    getStorageInitVolumeMounts(),
+			Command:         []string{"/usr/local/bin/swift-fetch-rings"},
+		})
+	}
+	return containers
+}
+
 func StatefulSet(
 	swiftstorage *swiftv1beta1.SwiftStorage,
 	labels map[string]string,
 	annotations map[string]string,
 	configHash string,
 	topology *topologyv1.Topology,
+	useExternalRings bool,
 ) (*appsv1.StatefulSet, error) {
 	trueVal := true
 	OnRootMismatch := corev1.FSGroupChangeOnRootMismatch
@@ -250,8 +269,9 @@ func StatefulSet(
 							Type: corev1.SeccompProfileTypeRuntimeDefault,
 						},
 					},
-					Volumes:    getStorageVolumes(swiftstorage),
-					Containers: getStorageContainers(swiftstorage, env),
+					Volumes:        getStorageVolumes(swiftstorage),
+					Containers:     getStorageContainers(swiftstorage, env),
+					InitContainers: getStorageInitContainers(swiftstorage, useExternalRings),
 				},
 			},
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{{
