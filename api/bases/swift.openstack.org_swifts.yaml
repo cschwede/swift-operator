@@ -481,7 +481,7 @@ spec:
                       and managed
                     type: boolean
                   minPartHours:
-                    default: 1
+                    default: 24
                     description: Minimum number of hours to restrict moving a partition
                       more than once
                     format: int64
