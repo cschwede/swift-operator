@@ -63,7 +63,7 @@ type SwiftRingSpecCore struct {
 	PartPower *int64 `json:"partPower"`
 
 	// +kubebuilder:validation:Required
-	// +kubebuilder:default=1
+	// +kubebuilder:default=24
 	// +kubebuilder:validation:Minimum=1
 	// Minimum number of hours to restrict moving a partition more than once
 	MinPartHours *int64 `json:"minPartHours"`
