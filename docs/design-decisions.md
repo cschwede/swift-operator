@@ -47,6 +47,30 @@ than one replica). It is required to create all pods at the same time,
 otherwise there will be PVCs that are not bound and the Swift rings can't be
 created, eventually blocking the start of these pods.
 
+### QoS class and resource limits
+
+By default, SwiftStorage and SwiftProxy pods use the "BestEffort" QoS class.
+However, these pods might be evicted if the system is under pressure. To prevent
+this, only the API server containers (`*-server`) have resource limits set,
+which promotes the pod to the "Burstable" QoS class. This prevents eviction
+while an API request is ongoing. The `*-server` processes also use significantly
+more memory compared to the background processes (replicators, auditors, etc.).
+
+Using the "Guaranteed" QoS class would require setting resource limits on all
+containers. Due to the large number of containers in each pod, this would either
+require overly fine-grained limits or allocating far more resources than actually
+needed for the background processes. Kubernetes 1.34+ will support pod-level QoS
+settings, which would allow setting a single resource limit for the entire pod
+instead of per container, making the "Guaranteed" QoS class practical.
+
+### Scale-in prevention
+
+The webhook rejects updates that reduce the number of SwiftStorage replicas.
+Scaling down would leave orphaned PVCs and risk data loss, because all data from
+the removed disks needs to be redistributed to the remaining ones. This could
+overfill the remaining PVs if there is not enough free capacity. Scale-up is
+allowed, making scaling intentionally asymmetric.
+
 ## Affinity
 Storage pods should be distributed to different nodes to avoid single points of
 failure. A podAntiAffinity rule with
@@ -65,7 +89,24 @@ all pods must use the same label to allow access. This is also the reason why
 the swift-operator is not using labels from
 [lib-common](https://github.com/openstack-k8s-operators/lib-common) (yet).
 
+## Swift hash path prefix and suffix
+
+Swift uses `swift_hash_path_prefix` and `swift_hash_path_suffix` values in
+`swift.conf` to determine the placement of data on disks. These are generated
+once using random strings when the Secret is first created and must never change
+— if they do, all existing data becomes inaccessible. The controller checks if
+the Secret already exists before creating it, which also allows operators to
+pre-create the Secret with specific values when adopting an existing deployment.
+
 ## Swift rings
+
+### Ring ConfigMap ownership
+
+The ring file ConfigMap is created by the ring rebalance job (swift-ring-tool),
+not by the controller. Therefore the owner reference is set by the job itself,
+which POSTs the ConfigMap with `ownerReferences` and a finalizer via the
+Kubernetes API. The controller only removes the finalizer during SwiftRing
+deletion.
 
 Swift rings require information about the disks to use, and this includes
 sizes (weights) and hostnames (or IPs). Sizes are not known when starting the
